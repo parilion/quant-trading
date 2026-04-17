@@ -12,12 +12,18 @@ def fit_and_predict(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
 
-    if "label_ret_t1" in result.columns and result["label_ret_t1"].notna().any():
+    train_rows = result["split_set"] == "train"
+    if not train_rows.any():
+        raise ValueError("training set is empty: require split_set=='train'")
+
+    if "label_ret_t1" in result.columns and result.loc[train_rows, "label_ret_t1"].notna().any():
         label_col = "label_ret_t1"
-    elif "label" in result.columns and result["label"].notna().any():
+    elif "label" in result.columns and result.loc[train_rows, "label"].notna().any():
         label_col = "label"
     else:
-        raise ValueError("No usable label column: expected non-null values in 'label_ret_t1' or 'label'")
+        raise ValueError(
+            "No usable label column in training set: expected non-null values in 'label_ret_t1' or 'label' where split_set=='train'"
+        )
 
     train_mask = (result["split_set"] == "train") & result[label_col].notna()
     test_mask = result["split_set"] == "test"

@@ -39,11 +39,20 @@ def test_fit_and_predict_falls_back_to_label_when_label_ret_t1_is_all_null():
     assert result["y_pred"].notna().all()
 
 
-def test_fit_and_predict_raises_when_train_set_is_empty():
+def test_fit_and_predict_uses_label_when_label_ret_t1_only_available_in_test():
     df = _sample_df()
     df.loc[df["split_set"] == "train", "label_ret_t1"] = None
-    df.loc[df["split_set"] == "train", "label"] = None
-    df.loc[df["split_set"] == "test", "label"] = [0.01, -0.02]
+    df.loc[df["split_set"] == "test", "label_ret_t1"] = [0.01, -0.01]
+
+    result = fit_and_predict(df, feature_cols=["ret_1d", "mom_20d"])
+
+    assert len(result) == 2
+    assert result["y_pred"].notna().all()
+
+
+def test_fit_and_predict_raises_when_train_set_is_empty():
+    df = _sample_df()
+    df["split_set"] = ["valid", "valid", "test", "test"]
 
     with pytest.raises(ValueError, match="training set is empty"):
         fit_and_predict(df, feature_cols=["ret_1d", "mom_20d"])
