@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS ods_daily_bar (
   is_suspended TINYINT DEFAULT 0,
   ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (trade_date, ts_code),
-  KEY idx_bar_trade_code (trade_date, ts_code)
+  PRIMARY KEY (trade_date, ts_code)
 );
 
 CREATE TABLE IF NOT EXISTS ods_fundamental (
@@ -52,8 +51,7 @@ CREATE TABLE IF NOT EXISTS dwd_features_base (
   is_valid TINYINT NOT NULL DEFAULT 1,
   ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (trade_date, ts_code),
-  KEY idx_feat_trade_code (trade_date, ts_code)
+  PRIMARY KEY (trade_date, ts_code)
 );
 
 CREATE TABLE IF NOT EXISTS dws_label (

@@ -69,3 +69,23 @@ def test_init_db_reads_schema_sql_and_executes_each_statement(monkeypatch):
         "CREATE TABLE foo (id INT)",
         "CREATE TABLE bar (id INT)",
     ]
+
+
+def test_split_sql_statements_handles_comments_and_semicolon_in_string():
+    sql_text = """
+    -- bootstrap comment
+    CREATE TABLE foo (
+      note VARCHAR(32) DEFAULT 'a;b'
+    );
+
+    ;   -- empty statement should be ignored
+    -- next statement
+    CREATE TABLE bar (id INT);
+    """
+
+    statements = init_db_module._split_sql_statements(sql_text)
+
+    assert statements == [
+        "CREATE TABLE foo (\n      note VARCHAR(32) DEFAULT 'a;b'\n    )",
+        "CREATE TABLE bar (id INT)",
+    ]
