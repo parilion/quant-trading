@@ -1,0 +1,116 @@
+CREATE TABLE IF NOT EXISTS meta_universe (
+  trade_date DATE NOT NULL,
+  index_code VARCHAR(16) NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  in_out_flag TINYINT NOT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, index_code, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS ods_daily_bar (
+  trade_date DATE NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  open DOUBLE,
+  high DOUBLE,
+  low DOUBLE,
+  close DOUBLE,
+  vol DOUBLE,
+  amount DOUBLE,
+  adj_factor DOUBLE,
+  is_suspended TINYINT DEFAULT 0,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, ts_code),
+  KEY idx_bar_trade_code (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS ods_fundamental (
+  trade_date DATE NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  pe_ttm DOUBLE,
+  pb DOUBLE,
+  ps_ttm DOUBLE,
+  dv_ttm DOUBLE,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS dwd_features_base (
+  trade_date DATE NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  ret_1d DOUBLE,
+  ret_5d DOUBLE,
+  vol_20d DOUBLE,
+  mom_20d DOUBLE,
+  amt_ratio_20d DOUBLE,
+  pe_ttm DOUBLE,
+  pb DOUBLE,
+  ps_ttm DOUBLE,
+  dv_ttm DOUBLE,
+  is_valid TINYINT NOT NULL DEFAULT 1,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, ts_code),
+  KEY idx_feat_trade_code (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS dws_label (
+  trade_date DATE NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  label_ret_t1 DOUBLE,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, ts_code)
+);
+
+CREATE TABLE IF NOT EXISTS ads_dataset_split (
+  trade_date DATE NOT NULL PRIMARY KEY,
+  split_set VARCHAR(8) NOT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ads_pred_scores (
+  run_id VARCHAR(64) NOT NULL,
+  trade_date DATE NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  y_pred DOUBLE NOT NULL,
+  model_name VARCHAR(32) NOT NULL,
+  model_version VARCHAR(64) NOT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (run_id, trade_date, ts_code),
+  KEY idx_pred_run_trade (run_id, trade_date)
+);
+
+CREATE TABLE IF NOT EXISTS ads_backtest_nav (
+  run_id VARCHAR(64) NOT NULL,
+  trade_date DATE NOT NULL,
+  nav DOUBLE NOT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (run_id, trade_date)
+);
+
+CREATE TABLE IF NOT EXISTS ads_backtest_metrics (
+  run_id VARCHAR(64) NOT NULL,
+  metric_name VARCHAR(64) NOT NULL,
+  metric_value DOUBLE NOT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (run_id, metric_name)
+);
+
+CREATE TABLE IF NOT EXISTS meta_run_log (
+  run_id VARCHAR(64) NOT NULL,
+  stage VARCHAR(32) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NULL,
+  error_msg TEXT NULL,
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (run_id, stage)
+);
