@@ -9,8 +9,16 @@ def topk_backtest(
     top_k: int,
     trade_cost_bps: float,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
-    merged = pred.merge(
-        realized[["trade_date", "ts_code", "label_ret_t1"]],
+    if top_k < 1:
+        raise ValueError("top_k must be >= 1")
+
+    pred_dedup = pred.drop_duplicates(subset=["trade_date", "ts_code"], keep="last")
+    realized_dedup = realized[["trade_date", "ts_code", "label_ret_t1"]].drop_duplicates(
+        subset=["trade_date", "ts_code"], keep="last"
+    )
+
+    merged = pred_dedup.merge(
+        realized_dedup,
         on=["trade_date", "ts_code"],
         how="inner",
     )
@@ -19,7 +27,10 @@ def topk_backtest(
         metrics = {"cum_return": 0.0, "avg_daily_ret": 0.0}
         return nav, metrics
 
-    ranked = merged.sort_values(["trade_date", "y_pred"], ascending=[True, False])
+    ranked = merged.sort_values(
+        ["trade_date", "y_pred", "ts_code"],
+        ascending=[True, False, True],
+    )
     selected = ranked.groupby("trade_date", sort=True, as_index=False).head(top_k)
 
     daily = (
@@ -32,6 +43,7 @@ def topk_backtest(
     daily["net_ret"] = daily["gross_ret"] - (trade_cost_bps / 10000.0)
     daily["nav"] = (1.0 + daily["net_ret"]).cumprod()
 
+    # Defensive fallback: normally unreachable because merged.empty is handled above.
     if daily.empty:
         nav = pd.DataFrame(columns=["trade_date", "nav"])
         metrics = {"cum_return": 0.0, "avg_daily_ret": 0.0}
