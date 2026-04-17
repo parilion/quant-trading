@@ -125,27 +125,29 @@ def test_topk_backtest_raises_value_error_when_top_k_is_not_positive(top_k: int)
         topk_backtest(pred, realized, top_k=top_k, trade_cost_bps=0)
 
 
-def test_topk_backtest_handles_duplicate_keys_without_row_amplification():
+@pytest.mark.parametrize("dup_side", ["pred", "realized"])
+def test_topk_backtest_raises_when_duplicate_keys_exist(dup_side: str):
     pred = pd.DataFrame(
         {
-            "trade_date": ["2026-01-02", "2026-01-02", "2026-01-03", "2026-01-03"],
-            "ts_code": ["000001.SZ", "000001.SZ", "000001.SZ", "000001.SZ"],
-            "y_pred": [0.10, 0.20, 0.30, 0.40],
+            "trade_date": ["2026-01-02", "2026-01-03"],
+            "ts_code": ["000001.SZ", "000001.SZ"],
+            "y_pred": [0.10, 0.30],
         }
     )
     realized = pd.DataFrame(
         {
-            "trade_date": ["2026-01-02", "2026-01-02", "2026-01-03", "2026-01-03"],
-            "ts_code": ["000001.SZ", "000001.SZ", "000001.SZ", "000001.SZ"],
-            "label_ret_t1": [0.01, 0.02, 0.03, 0.04],
+            "trade_date": ["2026-01-02", "2026-01-03"],
+            "ts_code": ["000001.SZ", "000001.SZ"],
+            "label_ret_t1": [0.01, 0.03],
         }
     )
+    if dup_side == "pred":
+        pred = pd.concat([pred, pred.iloc[[0]]], ignore_index=True)
+    else:
+        realized = pd.concat([realized, realized.iloc[[0]]], ignore_index=True)
 
-    nav, metrics = topk_backtest(pred, realized, top_k=1, trade_cost_bps=0)
-
-    assert len(nav) == 2
-    assert metrics["avg_daily_ret"] == pytest.approx(0.03)
-    assert metrics["cum_return"] == pytest.approx(0.0608)
+    with pytest.raises(ValueError, match=dup_side):
+        topk_backtest(pred, realized, top_k=1, trade_cost_bps=0)
 
 
 def test_topk_backtest_breaks_ties_by_ts_code_ascending():

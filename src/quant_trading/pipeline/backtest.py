@@ -12,13 +12,17 @@ def topk_backtest(
     if top_k < 1:
         raise ValueError("top_k must be >= 1")
 
-    pred_dedup = pred.drop_duplicates(subset=["trade_date", "ts_code"], keep="last")
-    realized_dedup = realized[["trade_date", "ts_code", "label_ret_t1"]].drop_duplicates(
-        subset=["trade_date", "ts_code"], keep="last"
-    )
+    pred_dup_mask = pred.duplicated(subset=["trade_date", "ts_code"], keep=False)
+    if pred_dup_mask.any():
+        raise ValueError("Duplicate keys found in pred for [trade_date, ts_code]")
 
-    merged = pred_dedup.merge(
-        realized_dedup,
+    realized_base = realized[["trade_date", "ts_code", "label_ret_t1"]]
+    realized_dup_mask = realized_base.duplicated(subset=["trade_date", "ts_code"], keep=False)
+    if realized_dup_mask.any():
+        raise ValueError("Duplicate keys found in realized for [trade_date, ts_code]")
+
+    merged = pred.merge(
+        realized_base,
         on=["trade_date", "ts_code"],
         how="inner",
     )
