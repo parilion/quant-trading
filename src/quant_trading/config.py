@@ -14,10 +14,26 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
+        top_k = cls._parse_int_env("TOP_K", 50)
+        trade_cost_bps = cls._parse_int_env("TRADE_COST_BPS", 20)
+
+        if top_k <= 0:
+            raise ValueError("top_k must be > 0")
+        if trade_cost_bps < 0:
+            raise ValueError("trade_cost_bps must be >= 0")
+
         return cls(
             mysql_dsn=os.environ["MYSQL_DSN"],
             tushare_token=os.environ["TUSHARE_TOKEN"],
             universe_index=os.environ.get("UNIVERSE_INDEX", "000905.SH"),
-            top_k=int(os.environ.get("TOP_K", 50)),
-            trade_cost_bps=int(os.environ.get("TRADE_COST_BPS", 20)),
+            top_k=top_k,
+            trade_cost_bps=trade_cost_bps,
         )
+
+    @staticmethod
+    def _parse_int_env(field: str, default: int) -> int:
+        raw = os.environ.get(field, str(default))
+        try:
+            return int(raw)
+        except ValueError as exc:
+            raise ValueError(f"Invalid integer for {field}: {raw!r}") from exc
