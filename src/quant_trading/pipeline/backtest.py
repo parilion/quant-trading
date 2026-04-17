@@ -9,16 +9,15 @@ def topk_backtest(
     top_k: int,
     trade_cost_bps: float,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
-    if top_k <= 0:
-        raise ValueError("top_k must be greater than 0")
-
     merged = pred.merge(
         realized[["trade_date", "ts_code", "label_ret_t1"]],
         on=["trade_date", "ts_code"],
         how="inner",
     )
     if merged.empty:
-        raise ValueError("No overlapping rows after merging pred and realized")
+        nav = pd.DataFrame(columns=["trade_date", "nav"])
+        metrics = {"cum_return": 0.0, "avg_daily_ret": 0.0}
+        return nav, metrics
 
     ranked = merged.sort_values(["trade_date", "y_pred"], ascending=[True, False])
     selected = ranked.groupby("trade_date", sort=True, as_index=False).head(top_k)
@@ -32,6 +31,11 @@ def topk_backtest(
     )
     daily["net_ret"] = daily["gross_ret"] - (trade_cost_bps / 10000.0)
     daily["nav"] = (1.0 + daily["net_ret"]).cumprod()
+
+    if daily.empty:
+        nav = pd.DataFrame(columns=["trade_date", "nav"])
+        metrics = {"cum_return": 0.0, "avg_daily_ret": 0.0}
+        return nav, metrics
 
     nav = daily[["trade_date", "nav"]].copy()
     metrics = {

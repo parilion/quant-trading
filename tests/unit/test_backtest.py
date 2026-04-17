@@ -75,3 +75,29 @@ def test_topk_backtest_metrics_contains_cum_return():
     _, metrics = topk_backtest(pred, realized, top_k=1, trade_cost_bps=0)
 
     assert "cum_return" in metrics
+
+
+def test_topk_backtest_returns_empty_nav_and_zero_metrics_on_empty_merge():
+    pred = pd.DataFrame(
+        {
+            "trade_date": ["2026-01-02"],
+            "ts_code": ["000001.SZ"],
+            "y_pred": [0.9],
+        }
+    )
+    realized = pd.DataFrame(
+        {
+            "trade_date": ["2026-01-03"],
+            "ts_code": ["000001.SZ"],
+            "label_ret_t1": [0.01],
+        }
+    )
+
+    nav, metrics = topk_backtest(pred, realized, top_k=1, trade_cost_bps=10)
+
+    assert list(nav.columns) == ["trade_date", "nav"]
+    assert len(nav) == 0
+    assert "cum_return" in metrics
+    assert "avg_daily_ret" in metrics
+    assert metrics["cum_return"] == pytest.approx(0.0)
+    assert metrics["avg_daily_ret"] == pytest.approx(0.0)
