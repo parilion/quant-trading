@@ -23,12 +23,19 @@ class Settings:
             raise ValueError("trade_cost_bps must be >= 0")
 
         return cls(
-            mysql_dsn=os.environ["MYSQL_DSN"],
-            tushare_token=os.environ["TUSHARE_TOKEN"],
+            mysql_dsn=cls._get_required_env("MYSQL_DSN"),
+            tushare_token=cls._get_required_env("TUSHARE_TOKEN"),
             universe_index=os.environ.get("UNIVERSE_INDEX", "000905.SH"),
             top_k=top_k,
             trade_cost_bps=trade_cost_bps,
         )
+
+    @staticmethod
+    def _get_required_env(field: str) -> str:
+        value = os.environ.get(field)
+        if value is None or value == "":
+            raise ValueError(f"Missing required environment variable: {field}")
+        return value
 
     @staticmethod
     def _parse_int_env(field: str, default: int) -> int:

@@ -60,3 +60,13 @@ def test_settings_trade_cost_bps_must_be_non_negative(monkeypatch):
 
     with pytest.raises(ValueError, match="trade_cost_bps"):
         Settings.from_env()
+
+
+@pytest.mark.parametrize("missing_field", ["MYSQL_DSN", "TUSHARE_TOKEN"])
+def test_settings_missing_required_env_raises_readable_error(monkeypatch, missing_field):
+    monkeypatch.setenv("MYSQL_DSN", "mysql+pymysql://user:pass@localhost:3306/quant")
+    monkeypatch.setenv("TUSHARE_TOKEN", "test-token")
+    monkeypatch.delenv(missing_field, raising=False)
+
+    with pytest.raises(ValueError, match=missing_field):
+        Settings.from_env()
