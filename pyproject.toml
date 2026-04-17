@@ -4,7 +4,17 @@ version = "0.1.0"
 description = "Quant trading project bootstrap"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pandas",
+    "numpy",
+    "sqlalchemy",
+    "pymysql",
+    "lightgbm",
+    "pyqlib",
+    "quantstats",
+    "pytest",
+    "python-dotenv",
+]
 
 [project.scripts]
 qt = "quant_trading.cli:main"
