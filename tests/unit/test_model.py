@@ -66,6 +66,13 @@ def test_fit_and_predict_raises_when_test_set_is_empty():
         fit_and_predict(df, feature_cols=["ret_1d", "mom_20d"])
 
 
+def test_fit_and_predict_raises_when_feature_cols_is_empty():
+    df = _sample_df()
+
+    with pytest.raises(ValueError, match="feature_cols"):
+        fit_and_predict(df, feature_cols=[])
+
+
 @pytest.mark.parametrize(
     "missing_col",
     ["trade_date", "ts_code", "split_set", "ret_1d", "mom_20d"],

@@ -7,6 +7,9 @@ from lightgbm import LGBMRegressor
 def fit_and_predict(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
     result = df.copy()
 
+    if not feature_cols:
+        raise ValueError("feature_cols must be non-empty")
+
     required_cols = {"trade_date", "ts_code", "split_set", *feature_cols}
     missing_cols = sorted(col for col in required_cols if col not in result.columns)
     if missing_cols:
