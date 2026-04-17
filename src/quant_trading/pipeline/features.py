@@ -29,14 +29,18 @@ def build_label_and_split(df: pd.DataFrame, train_end: str, valid_end: str) -> p
     result = df.copy()
     result = result.sort_values(["ts_code", "trade_date"]).reset_index(drop=True)
 
-    grouped = result.groupby("ts_code", sort=False)
-    result["label_ret_t1"] = grouped["close"].shift(-1) / result["close"] - 1.0
-
-    result["split_set"] = "test"
-    trade_dates = pd.to_datetime(result["trade_date"])
     train_end_ts = pd.to_datetime(train_end)
     valid_end_ts = pd.to_datetime(valid_end)
+    if train_end_ts > valid_end_ts:
+        raise ValueError("train_end must be less than or equal to valid_end")
 
-    result.loc[trade_dates <= train_end_ts, "split_set"] = "train"
-    result.loc[(trade_dates > train_end_ts) & (trade_dates <= valid_end_ts), "split_set"] = "valid"
+    grouped = result.groupby("ts_code", sort=False)
+    result["label_ret_t1"] = grouped["close"].shift(-1) / result["close"] - 1.0
+    result["label_ret_t1"] = result["label_ret_t1"].replace([float("inf"), float("-inf")], float("nan"))
+
+    result["split_set"] = "test"
+    next_trade_date = pd.to_datetime(grouped["trade_date"].shift(-1))
+
+    result.loc[next_trade_date <= train_end_ts, "split_set"] = "train"
+    result.loc[(next_trade_date > train_end_ts) & (next_trade_date <= valid_end_ts), "split_set"] = "valid"
     return result
