@@ -259,13 +259,21 @@ def _stage_clean_align(settings: Settings, engine: Engine) -> dict[str, object]:
                   b.trade_date, b.ts_code, b.close, b.amount,
                   f.pe_ttm, f.pb, f.ps_ttm, f.dv_ttm
                 FROM ods_daily_bar b
+                JOIN meta_universe u
+                  ON b.trade_date = u.trade_date
+                 AND b.ts_code = u.ts_code
+                 AND u.index_code = :index_code
                 LEFT JOIN ods_fundamental f
                   ON b.trade_date = f.trade_date AND b.ts_code = f.ts_code
                 WHERE b.trade_date BETWEEN :start_date AND :end_date
                 """
             ),
             conn,
-            params={"start_date": settings.run_start_date, "end_date": settings.run_end_date},
+            params={
+                "start_date": settings.run_start_date,
+                "end_date": settings.run_end_date,
+                "index_code": settings.universe_index,
+            },
         )
     if frame.empty:
         raise RuntimeError("No ODS data available for clean_align.")
@@ -285,13 +293,21 @@ def _stage_label_build(settings: Settings, engine: Engine) -> dict[str, object]:
         bars = pd.read_sql(
             text(
                 """
-                SELECT trade_date, ts_code, close
-                FROM ods_daily_bar
-                WHERE trade_date BETWEEN :start_date AND :end_date
+                SELECT b.trade_date, b.ts_code, b.close
+                FROM ods_daily_bar b
+                JOIN meta_universe u
+                  ON b.trade_date = u.trade_date
+                 AND b.ts_code = u.ts_code
+                 AND u.index_code = :index_code
+                WHERE b.trade_date BETWEEN :start_date AND :end_date
                 """
             ),
             conn,
-            params={"start_date": settings.run_start_date, "end_date": settings.run_end_date},
+            params={
+                "start_date": settings.run_start_date,
+                "end_date": settings.run_end_date,
+                "index_code": settings.universe_index,
+            },
         )
     if bars.empty:
         raise RuntimeError("No daily bars available for label_build.")
