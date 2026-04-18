@@ -30,10 +30,11 @@ def test_run_pipeline_returns_run_id_and_stage_results():
 
 
 def test_cli_accepts_start_stage_and_passes_to_orchestrator(monkeypatch):
-    captured = {"start_stage": None}
+    captured = {"start_stage": None, "execute": None}
 
-    def fake_run_pipeline(start_stage=None):
+    def fake_run_pipeline(start_stage=None, execute=False):
         captured["start_stage"] = start_stage
+        captured["execute"] = execute
         return {"run_id": "test-run", "stages": {}}
 
     monkeypatch.setattr(cli, "run_pipeline", fake_run_pipeline)
@@ -42,3 +43,19 @@ def test_cli_accepts_start_stage_and_passes_to_orchestrator(monkeypatch):
         cli.main(["--start-stage", "fit_predict"])
 
     assert captured["start_stage"] == "fit_predict"
+    assert captured["execute"] is False
+
+
+def test_cli_execute_flag_passed_to_orchestrator(monkeypatch):
+    captured = {"execute": None}
+
+    def fake_run_pipeline(start_stage=None, execute=False):
+        captured["execute"] = execute
+        return {"run_id": "test-run", "stages": {}}
+
+    monkeypatch.setattr(cli, "run_pipeline", fake_run_pipeline)
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        cli.main(["--execute"])
+
+    assert captured["execute"] is True

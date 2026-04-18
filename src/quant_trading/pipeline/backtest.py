@@ -44,6 +44,7 @@ def topk_backtest(
         .sort_values("trade_date")
         .reset_index(drop=True)
     )
+    daily["gross_ret"] = daily["gross_ret"].fillna(0.0)
     daily["net_ret"] = daily["gross_ret"] - (trade_cost_bps / 10000.0)
     daily["nav"] = (1.0 + daily["net_ret"]).cumprod()
 
