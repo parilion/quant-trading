@@ -1,35 +1,49 @@
 # Quant Trading
 
-## Minimal Runbook
+## Quick Start
 
-1. Setup environment
+1. Setup
 
-```bash
+```powershell
 python -m venv .venv
-. .venv/Scripts/activate
+.\.venv\Scripts\Activate.ps1
 pip install -e .[dev]
 ```
 
-2. Configure environment
+2. Configure
 
-```bash
-copy .env.example .env
+```powershell
+Copy-Item .env.example .env
 ```
 
-3. Initialize database schema
+Required configuration:
+- `MYSQL_DSN`
+- `TUSHARE_TOKEN`
 
-```bash
-python -m quant_trading.db.init_db
-```
+Common runtime configuration:
+- `UNIVERSE_INDEX` (default `000905.SH`)
+- `TOP_K` (default `50`)
+- `TRADE_COST_BPS` (default `20`)
+- `RUN_START_DATE`, `RUN_END_DATE`
+- `TRAIN_END_DATE`, `VALID_END_DATE`
+- `REPORT_DIR`
 
-4. Run full pipeline
+3. Run pipeline
 
-```bash
+Dry run (no external IO, test-friendly):
+
+```powershell
 qt
 ```
 
-5. Run from a specific stage
+Execute real stages (Tushare + MySQL):
 
-```bash
-qt --start-stage fit_predict
+```powershell
+qt --execute
+```
+
+Start from a specific stage:
+
+```powershell
+qt --execute --start-stage fit_predict
 ```

@@ -12,6 +12,7 @@ dependencies = [
     "lightgbm",
     "pyqlib",
     "quantstats",
+    "tushare",
     "python-dotenv",
 ]
 

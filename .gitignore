@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 .env
 .superpowers/
+artifacts/
+tmp_tsy_docs.html
