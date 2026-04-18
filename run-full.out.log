@@ -1,0 +1,3 @@
+[2026-04-18 12:39:57Z] stage start: raw_ingest (run_id=20260418T123957Z-5717d62d)
+[2026-04-18 12:43:39Z] raw_ingest progress: 20/2742 days, daily_rows=11909, fundamental_rows=11909, est_req_per_min=16.4
+[2026-04-18 12:45:16Z] raw_ingest progress: 40/2742 days, daily_rows=23807, fundamental_rows=23807, est_req_per_min=22.8
