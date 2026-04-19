@@ -26,6 +26,56 @@ def test_expand_snapshot_membership_builds_daily_rows_with_required_schema():
     assert (out["source"] == "meta_universe_expand").all()
     assert ((out["trade_date"] >= pd.Timestamp("2024-01-01")) & (out["trade_date"] <= pd.Timestamp("2024-01-08"))).all()
     assert set(out["trade_date"]) <= set(pd.to_datetime(trade_days))
+    assert not out.duplicated(subset=["trade_date", "index_code", "ts_code"]).any()
+
+    expected = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(
+                [
+                    "2024-01-02",
+                    "2024-01-03",
+                    "2024-01-04",
+                    "2024-01-05",
+                    "2024-01-08",
+                    "2024-01-02",
+                    "2024-01-03",
+                    "2024-01-04",
+                    "2024-01-05",
+                    "2024-01-08",
+                ]
+            ),
+            "index_code": ["000905.SH"] * 10,
+            "ts_code": [
+                "000001.SZ",
+                "000001.SZ",
+                "000001.SZ",
+                "000001.SZ",
+                "000001.SZ",
+                "000002.SZ",
+                "000002.SZ",
+                "000002.SZ",
+                "000002.SZ",
+                "000002.SZ",
+            ],
+            "source": ["meta_universe_expand"] * 10,
+        }
+    ).sort_values(["trade_date", "index_code", "ts_code"]).reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        out.sort_values(["trade_date", "index_code", "ts_code"]).reset_index(drop=True),
+        expected,
+    )
+
+    boundary = pd.Timestamp("2024-01-05")
+    first_interval_days = out.loc[
+        (out["ts_code"] == "000001.SZ") & (out["trade_date"] < boundary),
+        "trade_date",
+    ].tolist()
+    assert first_interval_days == pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]).tolist()
+    assert not (
+        ((out["ts_code"] == "000001.SZ") & (out["trade_date"] > boundary))
+        & (out["trade_date"] < pd.Timestamp("2024-01-08"))
+    ).any()
 
 
 def test_expand_snapshot_membership_does_not_backfill_before_first_snapshot():
