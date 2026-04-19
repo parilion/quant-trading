@@ -1,5 +1,6 @@
 REQUIRED_TABLES = [
     "meta_universe",
+    "dim_index_members_daily",
     "ods_daily_bar",
     "ods_fundamental",
     "dwd_features_base",

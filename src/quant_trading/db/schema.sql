@@ -8,6 +8,17 @@ CREATE TABLE IF NOT EXISTS meta_universe (
   PRIMARY KEY (trade_date, index_code, ts_code)
 );
 
+CREATE TABLE IF NOT EXISTS dim_index_members_daily (
+  trade_date DATE NOT NULL,
+  index_code VARCHAR(16) NOT NULL,
+  ts_code VARCHAR(16) NOT NULL,
+  source VARCHAR(64) NOT NULL DEFAULT 'meta_universe_expand',
+  ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (trade_date, index_code, ts_code),
+  KEY idx_index_trade (index_code, trade_date)
+);
+
 CREATE TABLE IF NOT EXISTS ods_daily_bar (
   trade_date DATE NOT NULL,
   ts_code VARCHAR(16) NOT NULL,

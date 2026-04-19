@@ -7,6 +7,7 @@ from quant_trading.db.schema import REQUIRED_TABLES
 def test_required_tables_match_expected_plan_tables():
     expected_tables = {
         "meta_universe",
+        "dim_index_members_daily",
         "ods_daily_bar",
         "ods_fundamental",
         "dwd_features_base",
@@ -18,7 +19,7 @@ def test_required_tables_match_expected_plan_tables():
         "meta_run_log",
     }
     assert set(REQUIRED_TABLES) == expected_tables
-    assert len(REQUIRED_TABLES) == 10
+    assert len(REQUIRED_TABLES) == 11
 
 
 def test_init_db_reads_schema_sql_and_executes_each_statement(monkeypatch):
