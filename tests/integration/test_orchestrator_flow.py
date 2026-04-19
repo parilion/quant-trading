@@ -8,6 +8,7 @@ from quant_trading.pipeline.orchestrator import STAGES, run_pipeline
 def test_stages_match_expected_order():
     assert STAGES == [
         "universe_snapshot",
+        "universe_daily_expand",
         "raw_ingest",
         "clean_align",
         "label_build",

@@ -19,9 +19,11 @@ from quant_trading.db.init_db import init_db
 from quant_trading.pipeline.backtest import topk_backtest
 from quant_trading.pipeline.features import build_features, build_label_and_split
 from quant_trading.pipeline.model import fit_and_predict
+from quant_trading.pipeline.universe_membership import expand_snapshot_membership
 
 STAGES = [
     "universe_snapshot",
+    "universe_daily_expand",
     "raw_ingest",
     "clean_align",
     "label_build",
@@ -262,6 +264,68 @@ def _stage_universe_snapshot(settings: Settings, engine: Engine) -> dict[str, ob
     frame["in_out_flag"] = 1
     rows = _upsert_dataframe(engine, "meta_universe", frame, ["trade_date", "index_code", "ts_code"])
     return {"status": "ok", "rows": rows}
+
+
+def _stage_universe_daily_expand(settings: Settings, engine: Engine) -> dict[str, object]:
+    pro = _get_thread_tushare_client(settings)
+    with engine.begin() as conn:
+        snapshots = pd.read_sql(
+            text(
+                """
+                SELECT trade_date, index_code, ts_code
+                FROM meta_universe
+                WHERE index_code = :index_code
+                  AND trade_date <= :end_date
+                """
+            ),
+            conn,
+            params={"index_code": settings.universe_index, "end_date": settings.run_end_date},
+        )
+    if snapshots.empty:
+        raise RuntimeError("meta_universe has no rows for universe_daily_expand.")
+
+    trade_cal = _call_with_retry(
+        lambda: pro.trade_cal(
+            exchange="SSE",
+            start_date=_to_tushare_date(settings.run_start_date),
+            end_date=_to_tushare_date(settings.run_end_date),
+        )
+    )
+    if trade_cal is None or trade_cal.empty:
+        raise RuntimeError("No trading calendar fetched for universe_daily_expand.")
+
+    open_days = pd.to_datetime(trade_cal.loc[trade_cal["is_open"] == 1, "cal_date"].astype(str))
+    if open_days.empty:
+        raise RuntimeError("No open trading days in configured range for universe_daily_expand.")
+
+    expanded = expand_snapshot_membership(
+        snapshots=snapshots,
+        trade_days=open_days,
+        run_start_date=settings.run_start_date,
+        run_end_date=settings.run_end_date,
+    )
+    if expanded.empty:
+        raise RuntimeError("universe_daily_expand produced zero membership rows.")
+
+    expanded["trade_date"] = pd.to_datetime(expanded["trade_date"]).dt.date
+    rows = _upsert_dataframe(
+        engine,
+        "dim_index_members_daily",
+        expanded,
+        ["trade_date", "index_code", "ts_code"],
+        cleanup_where="index_code = :index_code AND trade_date BETWEEN :start_date AND :end_date",
+        cleanup_params={
+            "index_code": settings.universe_index,
+            "start_date": settings.run_start_date,
+            "end_date": settings.run_end_date,
+        },
+    )
+    return {
+        "status": "ok",
+        "expanded_rows": rows,
+        "snapshot_dates_count": int(pd.to_datetime(snapshots["trade_date"]).nunique()),
+        "trade_days_count": int(open_days.nunique()),
+    }
 
 
 def _stage_raw_ingest(settings: Settings, engine: Engine) -> dict[str, object]:
@@ -613,6 +677,8 @@ def _stage_evaluate_report(settings: Settings, engine: Engine, run_id: str) -> d
 def _run_stage(stage_name: str, run_id: str, settings: Settings, engine: Engine) -> dict[str, object]:
     if stage_name == "universe_snapshot":
         return _stage_universe_snapshot(settings, engine)
+    if stage_name == "universe_daily_expand":
+        return _stage_universe_daily_expand(settings, engine)
     if stage_name == "raw_ingest":
         return _stage_raw_ingest(settings, engine)
     if stage_name == "clean_align":
