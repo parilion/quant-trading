@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS dim_index_members_daily (
   trade_date DATE NOT NULL,
   index_code VARCHAR(16) NOT NULL,
   ts_code VARCHAR(16) NOT NULL,
-  source VARCHAR(64) NOT NULL DEFAULT 'meta_universe_expand',
+  source VARCHAR(32) NOT NULL DEFAULT 'meta_universe_expand',
   ingest_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (trade_date, index_code, ts_code),

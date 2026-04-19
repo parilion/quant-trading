@@ -22,6 +22,24 @@ def test_required_tables_match_expected_plan_tables():
     assert len(REQUIRED_TABLES) == 11
 
 
+def test_schema_sql_contains_dim_index_members_daily_ddl():
+    schema_sql = (
+        Path(__file__).resolve().parents[2] / "src" / "quant_trading" / "db" / "schema.sql"
+    ).read_text(encoding="utf-8")
+
+    required_tokens = [
+        "CREATE TABLE IF NOT EXISTS dim_index_members_daily",
+        "trade_date DATE NOT NULL",
+        "index_code VARCHAR(16) NOT NULL",
+        "ts_code VARCHAR(16) NOT NULL",
+        "source VARCHAR(32) NOT NULL DEFAULT 'meta_universe_expand'",
+        "PRIMARY KEY (trade_date, index_code, ts_code)",
+        "KEY idx_index_trade (index_code, trade_date)",
+    ]
+    for token in required_tokens:
+        assert token in schema_sql
+
+
 def test_init_db_reads_schema_sql_and_executes_each_statement(monkeypatch):
     observed = {"read_path": None, "dsn": None, "executed": []}
     schema_sql = """
