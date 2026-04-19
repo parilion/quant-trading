@@ -64,8 +64,8 @@ def test_stage_clean_align_filters_by_daily_universe(monkeypatch):
     result = orchestrator._stage_clean_align(settings, _DummyEngine())
 
     sql_text = str(captured['sql']).lower()
-    assert 'join meta_universe u' in sql_text
-    assert 'u.index_code = :index_code' in sql_text
+    assert 'join dim_index_members_daily d' in sql_text
+    assert 'd.index_code = :index_code' in sql_text
     assert captured['params']['index_code'] == '000905.SH'
     assert result == {'status': 'ok', 'rows': 1}
 
@@ -109,7 +109,7 @@ def test_stage_label_build_filters_by_daily_universe(monkeypatch):
     result = orchestrator._stage_label_build(settings, _DummyEngine())
 
     sql_text = str(captured['sql']).lower()
-    assert 'join meta_universe u' in sql_text
-    assert 'u.index_code = :index_code' in sql_text
+    assert 'join dim_index_members_daily d' in sql_text
+    assert 'd.index_code = :index_code' in sql_text
     assert captured['params']['index_code'] == '000905.SH'
     assert result == {'status': 'ok', 'rows': 1}

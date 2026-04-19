@@ -248,7 +248,8 @@ def _upsert_dataframe(
 
 def _stage_universe_snapshot(settings: Settings, engine: Engine) -> dict[str, object]:
     pro = _load_tushare_client(settings.tushare_token, settings.tushare_base_url)
-    start_date = _to_tushare_date(settings.run_start_date)
+    anchor_start = (pd.to_datetime(settings.run_start_date) - pd.DateOffset(years=1)).strftime("%Y-%m-%d")
+    start_date = _to_tushare_date(anchor_start)
     end_date = _to_tushare_date(settings.run_end_date)
     weights = _call_with_retry(
         lambda: pro.index_weight(index_code=settings.universe_index, start_date=start_date, end_date=end_date)
@@ -438,10 +439,10 @@ def _stage_clean_align(settings: Settings, engine: Engine) -> dict[str, object]:
                   b.trade_date, b.ts_code, b.close, b.amount,
                   f.pe_ttm, f.pb, f.ps_ttm, f.dv_ttm
                 FROM ods_daily_bar b
-                JOIN meta_universe u
-                  ON b.trade_date = u.trade_date
-                 AND b.ts_code = u.ts_code
-                 AND u.index_code = :index_code
+                JOIN dim_index_members_daily d
+                  ON b.trade_date = d.trade_date
+                 AND b.ts_code = d.ts_code
+                 AND d.index_code = :index_code
                 LEFT JOIN ods_fundamental f
                   ON b.trade_date = f.trade_date AND b.ts_code = f.ts_code
                 WHERE b.trade_date BETWEEN :start_date AND :end_date
@@ -481,10 +482,10 @@ def _stage_label_build(settings: Settings, engine: Engine) -> dict[str, object]:
                 """
                 SELECT b.trade_date, b.ts_code, b.close
                 FROM ods_daily_bar b
-                JOIN meta_universe u
-                  ON b.trade_date = u.trade_date
-                 AND b.ts_code = u.ts_code
-                 AND u.index_code = :index_code
+                JOIN dim_index_members_daily d
+                  ON b.trade_date = d.trade_date
+                 AND b.ts_code = d.ts_code
+                 AND d.index_code = :index_code
                 WHERE b.trade_date BETWEEN :start_date AND :end_date
                 """
             ),

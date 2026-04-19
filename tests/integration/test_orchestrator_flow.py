@@ -6,6 +6,7 @@ from quant_trading.pipeline.orchestrator import STAGES, run_pipeline
 
 
 def test_stages_match_expected_order():
+    assert "universe_daily_expand" in STAGES
     assert STAGES == [
         "universe_snapshot",
         "universe_daily_expand",
@@ -24,6 +25,7 @@ def test_run_pipeline_returns_run_id_and_stage_results():
 
     assert isinstance(result["run_id"], str)
     assert result["run_id"]
+    assert "universe_daily_expand" in result["stages"]
     assert list(result["stages"].keys()) == STAGES
 
     for stage_name in STAGES:
