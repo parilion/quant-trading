@@ -8,6 +8,7 @@ from uuid import uuid4
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import math
 
 import pandas as pd
 from sqlalchemy import text
@@ -285,6 +286,14 @@ def _stage_universe_daily_expand(settings: Settings, engine: Engine) -> dict[str
     if snapshots.empty:
         raise RuntimeError("meta_universe has no rows for universe_daily_expand.")
 
+    first_snapshot = pd.to_datetime(snapshots["trade_date"]).min()
+    run_start = pd.to_datetime(settings.run_start_date)
+    if run_start < first_snapshot:
+        raise RuntimeError(
+            f"RUN_START_DATE {settings.run_start_date} is earlier than first snapshot "
+            f"{first_snapshot.date()} for index {settings.universe_index}."
+        )
+
     trade_cal = _call_with_retry(
         lambda: pro.trade_cal(
             exchange="SSE",
@@ -307,6 +316,16 @@ def _stage_universe_daily_expand(settings: Settings, engine: Engine) -> dict[str
     )
     if expanded.empty:
         raise RuntimeError("universe_daily_expand produced zero membership rows.")
+
+    day_counts = expanded.groupby("trade_date")["ts_code"].nunique()
+    bad_counts = day_counts[day_counts != 500]
+    if not bad_counts.empty:
+        bad_day = pd.to_datetime(bad_counts.index[0]).date()
+        bad_count = int(bad_counts.iloc[0])
+        raise RuntimeError(
+            f"Daily membership must be exactly 500 for {settings.universe_index}; "
+            f"got {bad_count} on {bad_day}."
+        )
 
     expanded["trade_date"] = pd.to_datetime(expanded["trade_date"]).dt.date
     rows = _upsert_dataframe(
@@ -672,7 +691,96 @@ def _stage_evaluate_report(settings: Settings, engine: Engine, run_id: str) -> d
     returns = nav["nav"].pct_change().fillna(0.0)
     returns.index = nav["trade_date"]
     qs.reports.html(returns, output=str(report_path), title=f"Quant Report {run_id}")
-    return {"status": "ok", "report_path": str(report_path)}
+    zh_report_path = report_dir / f"quantstats-{run_id}-zh.md"
+
+    trading_days = int(len(nav))
+    daily_mean = float(returns.mean())
+    daily_std = float(returns.std(ddof=0))
+    cum_return = float(nav["nav"].iloc[-1] - 1.0)
+    ann_return = float((1.0 + cum_return) ** (252.0 / trading_days) - 1.0) if trading_days > 0 else 0.0
+    ann_vol = float(daily_std * math.sqrt(252.0))
+    sharpe = float((daily_mean / daily_std) * math.sqrt(252.0)) if daily_std > 0 else 0.0
+    running_max = nav["nav"].cummax()
+    drawdown = nav["nav"] / running_max - 1.0
+    max_drawdown = float(drawdown.min()) if not drawdown.empty else 0.0
+    win_rate = float((returns > 0).mean()) if not returns.empty else 0.0
+
+    with engine.begin() as conn:
+        top_latest = pd.read_sql(
+            text(
+                """
+                SELECT trade_date, ts_code, y_pred
+                FROM ads_pred_scores
+                WHERE run_id = :run_id
+                  AND trade_date = (
+                    SELECT MAX(trade_date) FROM ads_pred_scores WHERE run_id = :run_id
+                  )
+                ORDER BY y_pred DESC, ts_code
+                LIMIT :top_k
+                """
+            ),
+            conn,
+            params={"run_id": run_id, "top_k": settings.top_k},
+        )
+
+    latest_date_str = "N/A"
+    top_lines: list[str] = []
+    if not top_latest.empty:
+        latest_date = pd.to_datetime(top_latest["trade_date"].iloc[0]).date()
+        latest_date_str = latest_date.isoformat()
+        for idx, row in top_latest.reset_index(drop=True).iterrows():
+            top_lines.append(f"{idx + 1}. `{row['ts_code']}` (score={float(row['y_pred']):.6f})")
+
+    zh_lines = [
+        f"# 量化回测中文解读（{run_id}）",
+        "",
+        "## 概览",
+        f"- 回测区间：`{nav['trade_date'].iloc[0].date().isoformat()} ~ {nav['trade_date'].iloc[-1].date().isoformat()}`",
+        f"- 交易日数量：`{trading_days}`",
+        f"- TopK：`{settings.top_k}`（等权）",
+        f"- 单边交易成本：`{settings.trade_cost_bps}` bps",
+        f"- 原始英文报告：`{report_path.name}`",
+        "",
+        "## 本次模型与信号",
+        "- 模型：`lightgbm`（`baseline-v1`）",
+        "- 使用因子：`ret_1d`, `ret_5d`, `vol_20d`, `mom_20d`, `amt_ratio_20d`",
+        "- 信号生成：每日按 `y_pred` 从高到低选 TopK，组合日收益按等权平均计算。",
+        "- 标签定义：`label_ret_t1 = close[t+1] / close[t] - 1`，即“用 t 日信息预测 t+1 日收益”。",
+        "",
+        "## 关键指标（中文）",
+        f"- 累计收益：`{cum_return:.2%}`",
+        f"- 年化收益：`{ann_return:.2%}`",
+        f"- 年化波动：`{ann_vol:.2%}`",
+        f"- 夏普比率（RF=0）：`{sharpe:.3f}`",
+        f"- 最大回撤：`{max_drawdown:.2%}`",
+        f"- 胜率（日频）：`{win_rate:.2%}`",
+        "",
+        "## 最新交易日候选（TopK）",
+        f"- 最新交易日：`{latest_date_str}`",
+    ]
+    if top_lines:
+        zh_lines.extend(top_lines)
+    else:
+        zh_lines.append("- 当前 run_id 未查到候选信号。")
+
+    zh_lines.extend(
+        [
+            "",
+            "## 英文术语对照",
+            "- Cumulative Return：累计收益",
+            "- Annual Return：年化收益",
+            "- Volatility：波动率",
+            "- Sharpe：夏普比率",
+            "- Max Drawdown：最大回撤",
+            "- Win Rate：胜率",
+            "",
+            "## 说明",
+            "- 该中文文件为解读层，不改变原始 QuantStats 英文报表与计算口径。",
+        ]
+    )
+    zh_report_path.write_text("\n".join(zh_lines), encoding="utf-8")
+
+    return {"status": "ok", "report_path": str(report_path), "zh_report_path": str(zh_report_path)}
 
 
 def _run_stage(stage_name: str, run_id: str, settings: Settings, engine: Engine) -> dict[str, object]:
