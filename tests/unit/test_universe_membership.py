@@ -1,6 +1,11 @@
 import pandas as pd
+import pytest
 
 from quant_trading.pipeline.universe_membership import expand_snapshot_membership
+
+
+def _codes(count: int, prefix: str) -> list[str]:
+    return [f"{prefix}{idx:03d}.SZ" for idx in range(1, count + 1)]
 
 
 def test_expand_snapshot_membership_builds_daily_rows_with_required_schema():
@@ -116,3 +121,39 @@ def test_expand_snapshot_membership_empty_snapshots_returns_empty_with_schema():
 
     assert out.empty
     assert list(out.columns) == ["trade_date", "index_code", "ts_code", "source"]
+
+
+def test_expand_snapshot_membership_uses_global_snapshot_interval_mapping():
+    first_snapshot_codes = _codes(500, "100")
+    second_snapshot_codes = _codes(500, "200")
+    snapshots = pd.DataFrame(
+        {
+            "trade_date": ["2024-01-31"] * 500 + ["2024-02-29"] * 500,
+            "index_code": ["000905.SH"] * 1000,
+            "ts_code": first_snapshot_codes + second_snapshot_codes,
+        }
+    )
+    trade_days = pd.to_datetime(["2024-02-01", "2024-02-02", "2024-02-29", "2024-03-01"])
+
+    out = expand_snapshot_membership(snapshots, trade_days, "2024-02-01", "2024-03-01")
+
+    first_day_codes = set(out.loc[out["trade_date"] == pd.Timestamp("2024-02-01"), "ts_code"])
+    rollover_day_codes = set(out.loc[out["trade_date"] == pd.Timestamp("2024-02-29"), "ts_code"])
+    assert out.loc[out["trade_date"] == pd.Timestamp("2024-02-01"), "ts_code"].nunique() == 500
+    assert out.loc[out["trade_date"] == pd.Timestamp("2024-02-29"), "ts_code"].nunique() == 500
+    assert first_day_codes == set(first_snapshot_codes)
+    assert rollover_day_codes == set(second_snapshot_codes)
+
+
+def test_expand_snapshot_membership_raises_when_snapshot_count_not_500():
+    snapshots = pd.DataFrame(
+        {
+            "trade_date": ["2024-01-31"] * 499,
+            "index_code": ["000905.SH"] * 499,
+            "ts_code": _codes(499, "300"),
+        }
+    )
+    trade_days = pd.to_datetime(["2024-02-01"])
+
+    with pytest.raises(ValueError, match="exactly 500"):
+        expand_snapshot_membership(snapshots, trade_days, "2024-02-01", "2024-02-01")
