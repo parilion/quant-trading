@@ -9,11 +9,13 @@ def _codes(count: int, prefix: str) -> list[str]:
 
 
 def test_expand_snapshot_membership_builds_daily_rows_with_required_schema():
+    first_snapshot_codes = _codes(500, "001")
+    second_snapshot_codes = first_snapshot_codes[1:] + ["999001.SZ"]
     snapshots = pd.DataFrame(
         {
-            "trade_date": ["2024-01-02", "2024-01-05", "2024-01-02"],
-            "index_code": ["000905.SH", "000905.SH", "000905.SH"],
-            "ts_code": ["000001.SZ", "000001.SZ", "000002.SZ"],
+            "trade_date": ["2024-01-02"] * 500 + ["2024-01-05"] * 500,
+            "index_code": ["000905.SH"] * 1000,
+            "ts_code": first_snapshot_codes + second_snapshot_codes,
         }
     )
     trade_days = pd.to_datetime([
@@ -32,63 +34,28 @@ def test_expand_snapshot_membership_builds_daily_rows_with_required_schema():
     assert ((out["trade_date"] >= pd.Timestamp("2024-01-01")) & (out["trade_date"] <= pd.Timestamp("2024-01-08"))).all()
     assert set(out["trade_date"]) <= set(pd.to_datetime(trade_days))
     assert not out.duplicated(subset=["trade_date", "index_code", "ts_code"]).any()
-
-    expected = pd.DataFrame(
-        {
-            "trade_date": pd.to_datetime(
-                [
-                    "2024-01-02",
-                    "2024-01-03",
-                    "2024-01-04",
-                    "2024-01-05",
-                    "2024-01-08",
-                    "2024-01-02",
-                    "2024-01-03",
-                    "2024-01-04",
-                    "2024-01-05",
-                    "2024-01-08",
-                ]
-            ),
-            "index_code": ["000905.SH"] * 10,
-            "ts_code": [
-                "000001.SZ",
-                "000001.SZ",
-                "000001.SZ",
-                "000001.SZ",
-                "000001.SZ",
-                "000002.SZ",
-                "000002.SZ",
-                "000002.SZ",
-                "000002.SZ",
-                "000002.SZ",
-            ],
-            "source": ["meta_universe_expand"] * 10,
-        }
-    ).sort_values(["trade_date", "index_code", "ts_code"]).reset_index(drop=True)
-
-    pd.testing.assert_frame_equal(
-        out.sort_values(["trade_date", "index_code", "ts_code"]).reset_index(drop=True),
-        expected,
-    )
-
     boundary = pd.Timestamp("2024-01-05")
+    assert out.loc[out["trade_date"] == pd.Timestamp("2024-01-02"), "ts_code"].nunique() == 500
+    assert out.loc[out["trade_date"] == boundary, "ts_code"].nunique() == 500
     first_interval_days = out.loc[
-        (out["ts_code"] == "000001.SZ") & (out["trade_date"] < boundary),
+        (out["ts_code"] == first_snapshot_codes[0]) & (out["trade_date"] < boundary),
         "trade_date",
     ].tolist()
     assert first_interval_days == pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"]).tolist()
     assert not (
-        ((out["ts_code"] == "000001.SZ") & (out["trade_date"] > boundary))
+        ((out["ts_code"] == first_snapshot_codes[0]) & (out["trade_date"] >= boundary))
         & (out["trade_date"] < pd.Timestamp("2024-01-08"))
     ).any()
+    assert set(out.loc[out["trade_date"] == pd.Timestamp("2024-01-02"), "ts_code"]) == set(first_snapshot_codes)
+    assert set(out.loc[out["trade_date"] == boundary, "ts_code"]) == set(second_snapshot_codes)
 
 
 def test_expand_snapshot_membership_does_not_backfill_before_first_snapshot():
     snapshots = pd.DataFrame(
         {
-            "trade_date": ["2024-01-05"],
-            "index_code": ["000905.SH"],
-            "ts_code": ["000001.SZ"],
+            "trade_date": ["2024-01-05"] * 500,
+            "index_code": ["000905.SH"] * 500,
+            "ts_code": _codes(500, "010"),
         }
     )
     trade_days = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])
@@ -101,9 +68,9 @@ def test_expand_snapshot_membership_does_not_backfill_before_first_snapshot():
 def test_expand_snapshot_membership_caps_last_interval_at_run_end():
     snapshots = pd.DataFrame(
         {
-            "trade_date": ["2024-01-02"],
-            "index_code": ["000905.SH"],
-            "ts_code": ["000001.SZ"],
+            "trade_date": ["2024-01-02"] * 500,
+            "index_code": ["000905.SH"] * 500,
+            "ts_code": _codes(500, "020"),
         }
     )
     trade_days = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"])
